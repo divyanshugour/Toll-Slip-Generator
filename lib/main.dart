@@ -13,15 +13,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Slip Generator',
-      theme: ThemeData(
-        primaryColorDark: Colors.blue,
-        primarySwatch: Colors.blue,
-        primaryColor: Colors.blue,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-        ),
-        useMaterial3: true,
-      ),
       home: const Generate(),
     );
   }

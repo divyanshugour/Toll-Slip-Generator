@@ -1,4 +1,3 @@
-import 'dart:ffi';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,18 +14,16 @@ class Generate extends StatefulWidget {
 }
 
 class _GenerateState extends State<Generate> {
-
   // variables and controllers.
   TextEditingController vehicleNumberController = TextEditingController();
-  String? lane = "CHANGEABLE";
-  String? ticketNumber = "CHANGEABLE";
-  String? vehicleNumber = "CHANGEABLE";
-  String? vehicleClass = "CHANGEABLE";
-  String? shift = "CHANGEABLE";
-  String? amount = "CHANGEABLE";
-  String? allowedWeight = "CHANGEABLE";
-  String? dateTime = "CHANGEABLE";
-
+  String? lane = "";
+  String? ticketNumber = "";
+  String? vehicleNumber = "";
+  String? vehicleClass = "";
+  String? shift = "";
+  String? amount = "";
+  String? allowedWeight = "";
+  String? dateTime = "";
 
   // each entry row widget
   pw.Container entryWidget(
@@ -72,7 +69,6 @@ class _GenerateState extends State<Generate> {
     );
   }
 
-
   // the whole pdf UI widgets
   Future<Uint8List> _generatePdf(PdfPageFormat format, String title) async {
     final pdf = pw.Document(version: PdfVersion.pdf_1_5, compress: true);
@@ -83,7 +79,7 @@ class _GenerateState extends State<Generate> {
         build: (context) {
           return pw.Center(
             child: pw.Column(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
+              mainAxisAlignment: pw.MainAxisAlignment.end,
               children: [
                 pw.Text(
                   'MPRDC',
@@ -126,8 +122,15 @@ class _GenerateState extends State<Generate> {
                         entryWidget('SHIFT', shift, pw.FontWeight.normal),
                         entryWidget(
                             'TICKET AMOUNT', 'Rs.$amount', pw.FontWeight.bold),
-                        entryWidget('NON FASTAG VEHICLE CHARGE', 'Rs.0',
-                            pw.FontWeight.bold),
+                        pw.Row(children: [
+                          pw.Text('NON FASTAG VEHICLE CHARGE:  ',
+                              style: const pw.TextStyle(
+                                fontSize: 18,
+                              )),
+                          pw.Text('Rs.0',
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, fontSize: 18))
+                        ])
                       ],
                     ),
                   ),
@@ -197,48 +200,93 @@ class _GenerateState extends State<Generate> {
           canChangePageFormat: false,
           actions: [
             Container(
+              padding: EdgeInsets.symmetric(horizontal: 10),
               child: TextField(
+                cursorColor: Colors.white,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
                 controller: vehicleNumberController,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'ENTER VEHICLE NUMBER',
                 ),
+                onChanged: (value) {
+                  setState(() {
+                    vehicleNumber = vehicleNumberController.text;
+                  });
+                },
               ),
             ),
-            DropDown(
-              items: const ["LANE2", "LANE3"],
-              hint: const Text('LANE'),
-              onChanged: (value) {
-                lane = value;
-              },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: DropDown(
+                  items: const ["LANE2", "LANE3"],
+                  hint: const Text(
+                    'LANE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    var val = value;
+                    setState(() {
+                      lane = val;
+                    });
+                  }),
             ),
-            DropDown(
-              items: const ["Lcv/Lmv", "Mav", "Truck"],
-              hint: const Text('VEHICLE CLASS'),
-              onChanged: (value) {
-                if (value == 'Lcv/Lmv') {
-                  vehicleClass = value;
-                  amount = '105';
-                  allowedWeight = '12590';
-                } else if (value == 'Mav') {
-                  vehicleClass = value;
-                  amount = '510';
-                  allowedWeight = '29400';
-                } else if (value == 'Truck') {
-                  vehicleClass = value;
-                  amount = '225';
-                  allowedWeight = '19425';
-                }
-              },
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  vehicleNumber = vehicleNumberController.text;
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: DropDown(
+                items: const ["Lcv/Lmv", "Mav", "Truck"],
+                hint: const Text(
+                  'VEHICLE CLASS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onChanged: (value) {
                   dateTime = DateTime.now().toString().split('.')[0];
-                });
-              },
-              child: const Text('SAVE'),
+                  if (value == 'Lcv/Lmv') {
+                    setState(() {
+                      vehicleClass = value;
+                      amount = '105';
+                      allowedWeight = '12590';
+                    });
+                  } else if (value == 'Mav') {
+                    setState(() {
+                      vehicleClass = value;
+                      amount = '510';
+                      allowedWeight = '29400';
+                    });
+                  } else if (value == 'Truck') {
+                    setState(() {
+                      vehicleClass = value;
+                      amount = '225';
+                      allowedWeight = '19425';
+                    });
+                  }
+                },
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(10, 10, 10, 0),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 15, horizontal: 30),
+                  primary: Colors.black, // Background color
+                ),
+                onPressed: () {
+                  setState(() {
+                    vehicleNumber = vehicleNumberController.text;
+                    dateTime = DateTime.now().toString().split('.')[0];
+                  });
+                },
+                child: const Text('SAVE'),
+              ),
             ),
           ],
           build: (format) => _generatePdf(format, 'slip'),
