@@ -1,10 +1,16 @@
 import 'dart:typed_data';
+import 'package:collect_toll/variables.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dropdown/flutter_dropdown.dart';
+import 'package:mysql_client/mysql_client.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'login.dart';
+import 'manage.dart';
 
 class Generate extends StatefulWidget {
   const Generate({super.key});
@@ -16,14 +22,51 @@ class Generate extends StatefulWidget {
 class _GenerateState extends State<Generate> {
   // variables and controllers.
   TextEditingController vehicleNumberController = TextEditingController();
-  String? lane = "";
-  String? ticketNumber = "";
-  String? vehicleNumber = "";
-  String? vehicleClass = "";
-  String? shift = "";
-  String? amount = "";
-  String? allowedWeight = "";
-  String? dateTime = "";
+  late SharedPreferences prefs;
+  late final conn;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    getVariables().then((value) => {
+          if (Variables.dbHost != "" &&
+              Variables.dbName != "" &&
+              Variables.dbPort != "" &&
+              Variables.dbUsername != "" &&
+              Variables.dbPassword != "")
+            {
+              setState(() {
+                getConnection();
+              })
+            }
+        });
+    super.initState();
+  }
+
+  Future<bool?> getVariables() async {
+    prefs = await SharedPreferences.getInstance();
+    setState(() {
+      Variables.dbHost = prefs.getString('host')!;
+      Variables.dbPort = prefs.getString('port')!;
+      Variables.dbUsername = prefs.getString('dbusername')!;
+      Variables.dbPassword = prefs.getString('dbpassword')!;
+      Variables.dbName = prefs.getString('dbname')!;
+      Variables.endDate = prefs.getString('enddate')!;
+    });
+  }
+
+  // get SQL connection
+  void getConnection() async {
+    conn = await MySQLConnection.createConnection(
+      host: Variables.dbHost,
+      port: int.parse(Variables.dbPort as String),
+      userName: Variables.dbUsername as String,
+      password: Variables.dbPassword as String,
+      databaseName: Variables.dbName, // optional
+    );
+    await conn.connect();
+    Variables.connected = true;
+  }
 
   // each entry row widget
   pw.Container entryWidget(
@@ -110,18 +153,20 @@ class _GenerateState extends State<Generate> {
                       children: [
                         entryWidget(
                             'OPERATOR ID', '1001', pw.FontWeight.normal),
-                        entryWidget('TICKET NUMBER', ticketNumber,
+                        entryWidget('TICKET NUMBER', Variables.ticketNumber,
                             pw.FontWeight.normal),
-                        entryWidget('LANE', lane, pw.FontWeight.normal),
+                        entryWidget(
+                            'LANE', Variables.lane, pw.FontWeight.normal),
                         entryWidget(
                             'TICKET', 'SINGLE TICKET', pw.FontWeight.bold),
-                        entryWidget(
-                            'VEHICLE NO', vehicleNumber, pw.FontWeight.normal),
-                        entryWidget('VEHICLE CLASS', vehicleClass,
+                        entryWidget('VEHICLE NO', Variables.vehicleNumber,
                             pw.FontWeight.normal),
-                        entryWidget('SHIFT', shift, pw.FontWeight.normal),
+                        entryWidget('VEHICLE CLASS', Variables.vehicleClass,
+                            pw.FontWeight.normal),
                         entryWidget(
-                            'TICKET AMOUNT', 'Rs.$amount', pw.FontWeight.bold),
+                            'SHIFT', Variables.shift, pw.FontWeight.normal),
+                        entryWidget('TICKET AMOUNT', 'Rs.${Variables.amount}',
+                            pw.FontWeight.bold),
                         pw.Row(children: [
                           pw.Text('NON FASTAG VEHICLE CHARGE:  ',
                               style: const pw.TextStyle(
@@ -141,7 +186,7 @@ class _GenerateState extends State<Generate> {
                   child: pw.Column(
                     children: [
                       entryWidget('VEHICLE WEIGHT', '0', pw.FontWeight.normal),
-                      entryWidget('ALLOWED WEIGHT', allowedWeight,
+                      entryWidget('ALLOWED WEIGHT', Variables.allowedWeight,
                           pw.FontWeight.normal),
                       entryWidget('OVER WEIGHT', '0', pw.FontWeight.normal),
                       entryWidget('O/W AMOUNT', 'Rs.0', pw.FontWeight.bold),
@@ -158,9 +203,10 @@ class _GenerateState extends State<Generate> {
                   ))),
                   child: pw.Column(
                     children: [
-                      entryWidget('ISSUE DATE', dateTime, pw.FontWeight.normal),
-                      entryWidget(
-                          'TOTAL AMOUNT', 'Rs.$amount', pw.FontWeight.bold),
+                      entryWidget('ISSUE DATE', Variables.dateTime,
+                          pw.FontWeight.normal),
+                      entryWidget('TOTAL AMOUNT', 'Rs.${Variables.amount}',
+                          pw.FontWeight.bold),
                     ],
                   ),
                 ),
@@ -184,6 +230,23 @@ class _GenerateState extends State<Generate> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
+          actions: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 12, 18, 12),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  primary: Colors.black, // Background color
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const Login()),
+                  );
+                },
+                child: const Text('MANAGE'),
+              ),
+            ),
+          ],
           title: const Text(
             'Generate Slip',
             style: TextStyle(
@@ -191,8 +254,6 @@ class _GenerateState extends State<Generate> {
               color: Colors.white,
             ),
           ),
-          centerTitle: true,
-          backgroundColor: Colors.blueAccent,
         ),
         backgroundColor: Colors.blueAccent,
         body: PdfPreview(
@@ -203,18 +264,20 @@ class _GenerateState extends State<Generate> {
               padding: EdgeInsets.symmetric(horizontal: 10),
               child: TextField(
                 cursorColor: Colors.white,
-                style: const TextStyle(
-                  color: Colors.black,
+                style: TextStyle(
+                  fontSize: 25,
+                  color: Variables.connected ? Colors.black : Colors.red,
                   fontWeight: FontWeight.bold,
                 ),
                 controller: vehicleNumberController,
+                textAlign: TextAlign.center,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'ENTER VEHICLE NUMBER',
                 ),
                 onChanged: (value) {
                   setState(() {
-                    vehicleNumber = vehicleNumberController.text;
+                    Variables.vehicleNumber = vehicleNumberController.text;
                   });
                 },
               ),
@@ -233,7 +296,7 @@ class _GenerateState extends State<Generate> {
                   onChanged: (value) {
                     var val = value;
                     setState(() {
-                      lane = val;
+                      Variables.lane = val!;
                     });
                   }),
             ),
@@ -249,24 +312,48 @@ class _GenerateState extends State<Generate> {
                   ),
                 ),
                 onChanged: (value) {
-                  dateTime = DateTime.now().toString().split('.')[0];
+                  Variables.dateTime = DateTime.now().toString().split('.')[0];
+                  String currDate = DateTime.now().toString().split(' ')[0];
+                  DateTime firstShift = DateTime.parse("$currDate 00:00:00");
+                  DateTime secondShift = DateTime.parse("$currDate 08:00:00");
+                  DateTime thirdShift = DateTime.parse("$currDate 16:00:00");
+                  DateTime currDateTime = DateTime.parse(Variables.dateTime);
+
+                  if (currDateTime.isAfter(firstShift) &&
+                      currDateTime.isBefore(secondShift)) {
+                    setState(() {
+                      Variables.shift = "FIRST SHIFT";
+                    });
+                  } else if (currDateTime.isAfter(secondShift) &&
+                      currDateTime.isBefore(thirdShift)) {
+                    setState(() {
+                      Variables.shift = "SECOND SHIFT";
+                    });
+                  } else if (currDateTime.isAfter(thirdShift) &&
+                      currDateTime
+                          .isBefore(firstShift.add(Duration(days: 1)))) {
+                    setState(() {
+                      Variables.shift = "THIRD SHIFT";
+                    });
+                  }
+
                   if (value == 'Lcv/Lmv') {
                     setState(() {
-                      vehicleClass = value;
-                      amount = '105';
-                      allowedWeight = '12590';
+                      Variables.vehicleClass = value!;
+                      Variables.amount = '105';
+                      Variables.allowedWeight = '12590';
                     });
                   } else if (value == 'Mav') {
                     setState(() {
-                      vehicleClass = value;
-                      amount = '510';
-                      allowedWeight = '29400';
+                      Variables.vehicleClass = value!;
+                      Variables.amount = '510';
+                      Variables.allowedWeight = '29400';
                     });
                   } else if (value == 'Truck') {
                     setState(() {
-                      vehicleClass = value;
-                      amount = '225';
-                      allowedWeight = '19425';
+                      Variables.vehicleClass = value!;
+                      Variables.amount = '225';
+                      Variables.allowedWeight = '19425';
                     });
                   }
                 },
@@ -279,17 +366,43 @@ class _GenerateState extends State<Generate> {
                   padding: EdgeInsets.symmetric(vertical: 15, horizontal: 30),
                   primary: Colors.black, // Background color
                 ),
-                onPressed: () {
-                  setState(() {
-                    vehicleNumber = vehicleNumberController.text;
-                    dateTime = DateTime.now().toString().split('.')[0];
-                  });
+                onPressed: () async {
+                  if (Variables.connected &&
+                      DateTime.now().isBefore(DateTime.parse(
+                          Variables.endDate == ""
+                              ? "2050-12-12 00:00:00"
+                              : Variables.endDate))) {
+                    var res = await conn.execute("SELECT * FROM entries;");
+                    Variables.lastSerial = res.numOfRows;
+                    await conn.execute(
+                      "INSERT INTO entries (SerialNumber, VehicleNumber, VehicleCategory, Amount, DateTime) VALUES (:serial, :number, :category, :amount, :date)",
+                      {
+                        "serial": Variables.lastSerial + 1,
+                        "number": Variables.vehicleNumber,
+                        "category": Variables.vehicleClass,
+                        "amount": Variables.amount,
+                        "date": Variables.dateTime,
+                      },
+                    );
+                    setState(() {
+                      String intFixed(int n, int count) =>
+                          n.toString().padLeft(count, "0");
+                      var number =
+                          intFixed(Variables.lastSerial + 1, 14).toString();
+                      Variables.ticketNumber = '1A' + number;
+                      vehicleNumberController.text = "";
+                    });
+                  }
                 },
                 child: const Text('SAVE'),
               ),
             ),
           ],
           build: (format) => _generatePdf(format, 'slip'),
+          allowPrinting: DateTime.now().isBefore(DateTime.parse(
+              Variables.endDate == ""
+                  ? "2050-12-12 00:00:00"
+                  : Variables.endDate)),
         ),
       ),
     );
