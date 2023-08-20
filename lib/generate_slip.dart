@@ -278,6 +278,7 @@ class _GenerateState extends State<Generate> {
                 onChanged: (value) {
                   setState(() {
                     Variables.vehicleNumber = vehicleNumberController.text;
+                    Variables.ticketNumber = "";
                   });
                 },
               ),
@@ -371,7 +372,11 @@ class _GenerateState extends State<Generate> {
                       DateTime.now().isBefore(DateTime.parse(
                           Variables.endDate == ""
                               ? "2050-12-12 00:00:00"
-                              : Variables.endDate))) {
+                              : Variables.endDate)) &&
+                      Variables.amount != "" &&
+                      Variables.vehicleClass != "" &&
+                      Variables.dateTime != "" &&
+                      Variables.vehicleNumber != "") {
                     var res = await conn.execute("SELECT * FROM entries;");
                     Variables.lastSerial = res.numOfRows;
                     await conn.execute(
